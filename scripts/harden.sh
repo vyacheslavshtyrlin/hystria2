@@ -22,28 +22,52 @@ cp "$SSHD" "${SSHD}.bak.$(date +%s)"
 
 set_sshd() {
   local key="$1" val="$2"
-  if grep -qE "^#?${key}" "$SSHD"; then
-    sed -i "s|^#\?${key}.*|${key} ${val}|" "$SSHD"
+  # Точное совпадение ключа (слово целиком) — не трогаем PortForwarding при установке Port
+  if grep -qE "^#?[[:space:]]*${key}[[:space:]]" "$SSHD"; then
+    sed -i -E "s|^#?[[:space:]]*${key}[[:space:]].*|${key} ${val}|" "$SSHD"
   else
     echo "${key} ${val}" >> "$SSHD"
   fi
 }
 
-set_sshd Port                     "$SSH_PORT"
-set_sshd PermitRootLogin          no
-set_sshd PasswordAuthentication   no
-set_sshd PubkeyAuthentication     yes
-set_sshd AuthenticationMethods    publickey
-set_sshd X11Forwarding            no
-set_sshd AllowTcpForwarding       no
-set_sshd MaxAuthTries             3
-set_sshd LoginGraceTime           30
-set_sshd ClientAliveInterval      300
-set_sshd ClientAliveCountMax      2
+# Проверяем наличие SSH ключа перед отключением пароля
+AUTHORIZED_KEYS_COUNT=0
+for home in /root /home/*; do
+  [ -f "$home/.ssh/authorized_keys" ] && \
+    AUTHORIZED_KEYS_COUNT=$(( AUTHORIZED_KEYS_COUNT + $(grep -c 'ssh-' "$home/.ssh/authorized_keys" 2>/dev/null || echo 0) ))
+done
 
-# Проверяем конфиг перед перезапуском
-sshd -t && systemctl reload sshd
-warn "SSH: root-логин и пароли отключены. Убедись что ключ добавлен!"
+if [ "$AUTHORIZED_KEYS_COUNT" -eq 0 ]; then
+  warn "SSH ключи не найдены! Пропускаем отключение парольного входа."
+  warn "Добавь ключ: ssh-copy-id root@СЕРВЕР — и перезапусти harden.sh"
+  set_sshd Port            "$SSH_PORT"
+  set_sshd PermitRootLogin no
+  set_sshd MaxAuthTries    3
+  set_sshd LoginGraceTime  30
+else
+  set_sshd Port                   "$SSH_PORT"
+  set_sshd PermitRootLogin        no
+  set_sshd PasswordAuthentication no
+  set_sshd PubkeyAuthentication   yes
+  set_sshd AuthenticationMethods  publickey
+  set_sshd X11Forwarding          no
+  set_sshd AllowTcpForwarding     no
+  set_sshd MaxAuthTries           3
+  set_sshd LoginGraceTime         30
+  set_sshd ClientAliveInterval    300
+  set_sshd ClientAliveCountMax    2
+  warn "SSH: пароли отключены. Используй только ключ!"
+fi
+
+# Проверяем конфиг — если битый, восстанавливаем бэкап и падаем
+if ! sshd -t 2>/tmp/sshd_test_err; then
+  cat /tmp/sshd_test_err
+  warn "Конфиг SSH повреждён — восстанавливаем бэкап..."
+  cp "${SSHD}.bak."* "$SSHD" 2>/dev/null || true
+  die "SSH конфиг не прошёл проверку. Бэкап восстановлен."
+fi
+
+systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true
 
 # ── 2. SYSCTL — сеть и безопасность ───────────────────────────
 log "Настраиваем sysctl..."
@@ -165,7 +189,8 @@ cat > /etc/security/limits.d/99-server.conf <<'EOF'
 * hard nproc  65535
 EOF
 
-echo 'DefaultLimitNOFILE=65535' >> /etc/systemd/system.conf
+grep -q 'DefaultLimitNOFILE' /etc/systemd/system.conf || \
+  echo 'DefaultLimitNOFILE=65535' >> /etc/systemd/system.conf
 systemctl daemon-reexec
 
 echo ""

@@ -24,8 +24,17 @@
 | A | `vpn` | `IP_твоего_сервера` | 300 |
 | A | `panel` | `IP_твоего_сервера` | 300 |
 
-> ⏳ DNS обновляется до 30 минут. Проверить можно командой:
-> `nslookup vpn.твойдомен.com` — должен вернуть IP сервера.
+> ⚠️ **Если домен на Cloudflare** — обязательно поставить режим **DNS only** (серое облако),
+> не Proxied (оранжевое). Иначе certbot не выдаст сертификат, а Hysteria2 UDP не заработает —
+> Cloudflare не проксирует UDP трафик.
+
+**Проверить что DNS смотрит на твой сервер** (не на Cloudflare):
+```bash
+# Должен вернуть IP твоего сервера, а не 104.x.x.x / 172.x.x.x
+dig +short vpn.твойдомен.com @8.8.8.8
+```
+
+> ⏳ После смены DNS записей подождать до 5 минут (TTL=300) перед запуском деплоя.
 
 ---
 
@@ -50,17 +59,15 @@ ssh root@IP_сервера
 
 ```bash
 apt-get install -y git
-git clone https://github.com/ВАШ_РЕПО/hystria2 /opt/proxy
-cd /opt/proxy
+git clone https://github.com/vyacheslavshtyrlin/hystria2
 ```
 
 ---
 
 ## Шаг 4. Настройка конфига
 
-На **сервере**:
 ```bash
-cd /opt/proxy
+cd ~/hystria2
 cp .env.example .env
 nano .env
 ```
@@ -83,8 +90,7 @@ SSH_PORT=2222                      # новый порт SSH (запомни!)
 ## Шаг 5. Запуск деплоя
 
 ```bash
-cd /opt/proxy
-chmod +x scripts/deploy.sh
+cd ~/hystria2
 sudo bash scripts/deploy.sh
 ```
 
@@ -112,8 +118,6 @@ sudo bash scripts/deploy.sh
 ║  URL    : https://panel.твойдомен.com        ║
 ║  Логин  : admin                              ║
 ║  Пароль : sysadmin  ← СМЕНИТЬ!              ║
-║                                              ║
-║  MTProxy: tg://proxy?server=...              ║
 ╚══════════════════════════════════════════════╝
 ```
 
@@ -199,15 +203,15 @@ hysteria2://ПАРОЛЬ@vpn.твойдомен.com:443?...
 2. Добавить конфиг → вставить ссылку из h-ui
 3. Нажать Connect ✅
 
-### Android — Hiddify / v2rayNG
-- [Hiddify](https://play.google.com/store/apps/details?id=app.hiddify.com) — рекомендуется
+### Android — Hiddify
+- [Hiddify](https://play.google.com/store/apps/details?id=app.hiddify.com)
 - Добавить профиль → вставить ссылку
 
-### iOS — Streisand / Shadowrocket
+### iOS — Streisand
 - [Streisand](https://apps.apple.com/app/streisand/id6450534064) — бесплатный
 - Добавить конфиг → вставить ссылку
 
-> 💡 В h-ui можно нажать кнопку **QR-код** — отсканировать с телефона вместо копирования ссылки.
+> 💡 В h-ui можно нажать **QR-код** — отсканировать с телефона вместо копирования ссылки.
 
 ---
 
@@ -216,6 +220,7 @@ hysteria2://ПАРОЛЬ@vpn.твойдомен.com:443?...
 MTProxy устанавливается отдельно от Docker — как systemd сервис на хосте.
 
 ```bash
+cd ~/hystria2
 bash scripts/mtproxy.sh
 ```
 
@@ -242,9 +247,11 @@ tg://proxy?server=vpn.твойдомен.com&port=8443&secret=ee...
 
 ## Управление сервером
 
-### Базовые команды (выполнять на сервере в `/opt/proxy`)
+### Базовые команды
 
 ```bash
+cd ~/hystria2
+
 # Статус всех контейнеров
 docker compose ps
 
@@ -268,6 +275,8 @@ docker compose up -d
 ### Если что-то сломалось
 
 ```bash
+cd ~/hystria2
+
 # Проверить что слушает на портах
 ss -tulnp | grep -E '80|443|8443'
 
@@ -294,22 +303,25 @@ docker compose exec fail2ban fail2ban-client status nginx-4xx
 ## Частые проблемы
 
 **❌ Сертификат не выдаётся**
-- Проверь что DNS указывает на IP сервера: `nslookup vpn.твойдомен.com`
-- DNS мог ещё не обновиться — подождать и попробовать снова: `bash certbot/init.sh`
+- Проверь что DNS указывает на IP сервера: `dig +short vpn.твойдомен.com @8.8.8.8`
+- DNS мог ещё не обновиться — подождать и попробовать снова:
+  ```bash
+  cd ~/hystria2 && bash certbot/init.sh
+  ```
 
 **❌ h-ui панель не открывается**
-- Hysteria2 работает на том же порту 443 UDP — а панель идёт через nginx на 443 TCP. Это нормально, они не конфликтуют.
-- Проверь: `docker compose ps` — все ли контейнеры `Up`?
+- Hysteria2 (UDP 443) и nginx (TCP 443) не конфликтуют — это нормально.
+- Проверь: `cd ~/hystria2 && docker compose ps` — все ли контейнеры `Up`?
 
 **❌ Hysteria2 не подключается**
 - Убедись что в клиенте указан тот же `obfs-password` что задан в h-ui
 - Проверь статус сервера в h-ui — должен быть Running
-- Открой UDP 443 в фаерволе: `ufw status` — должна быть строка `443/udp ALLOW`
+- Проверь UFW: `ufw status` — должна быть строка `443/udp ALLOW`
 
 **❌ Забыл SSH порт / заблокировал себя**
 - В панели хостинга есть **VNC/Console** — доступ к серверу без SSH
-- Войти через консоль, исправить порт: `nano /etc/ssh/sshd_config`
+- Войти через консоль и исправить: `nano /etc/ssh/sshd_config`
 
-**❌ После деплоя SSH не работает на старом порту 22**
-- Это нормально — порт сменился на тот что указан в `.env` (`SSH_PORT`)
+**❌ После деплоя SSH не работает**
+- Порт сменился на тот что указан в `.env` (`SSH_PORT=2222`)
 - Подключаться: `ssh -p 2222 root@IP_сервера`
