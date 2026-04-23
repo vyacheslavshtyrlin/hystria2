@@ -42,7 +42,9 @@ sed -i "s/DOMAIN_PLACEHOLDER/$DOMAIN/g" "$ROOT/nginx/conf.d/default.conf"
 
 # ── 5. Настраиваем автообновление через cron ──────────────────
 CRON_JOB="0 3 * * * certbot renew --quiet --pre-hook 'docker compose -f $ROOT/docker-compose.yml stop nginx' --post-hook 'docker compose -f $ROOT/docker-compose.yml start nginx'"
-{ crontab -l 2>/dev/null || true; } | grep -v 'certbot renew' | { cat; echo "$CRON_JOB"; } | crontab -
+EXISTING_CRON=$(crontab -l 2>/dev/null || true)
+FILTERED_CRON=$(printf '%s' "$EXISTING_CRON" | grep -v 'certbot renew' || true)
+printf '%s\n%s\n' "$FILTERED_CRON" "$CRON_JOB" | crontab -
 log "Автообновление сертификата настроено (cron, каждую ночь в 03:00)"
 
 # ── 6. Запускаем nginx с HTTPS ────────────────────────────────
