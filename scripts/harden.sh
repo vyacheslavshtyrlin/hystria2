@@ -18,7 +18,8 @@ SSH_PORT="${SSH_PORT:-22}"
 log "Хардening SSH (порт: $SSH_PORT)..."
 
 SSHD=/etc/ssh/sshd_config
-cp "$SSHD" "${SSHD}.bak.$(date +%s)"
+SSHD_BACKUP="${SSHD}.bak.$(date +%s)"
+cp "$SSHD" "$SSHD_BACKUP"
 
 set_sshd() {
   local key="$1" val="$2"
@@ -33,8 +34,10 @@ set_sshd() {
 # Проверяем наличие SSH ключа перед отключением пароля
 AUTHORIZED_KEYS_COUNT=0
 for home in /root /home/*; do
-  [ -f "$home/.ssh/authorized_keys" ] && \
-    AUTHORIZED_KEYS_COUNT=$(( AUTHORIZED_KEYS_COUNT + $(grep -c 'ssh-' "$home/.ssh/authorized_keys" 2>/dev/null || echo 0) ))
+  if [ -f "$home/.ssh/authorized_keys" ]; then
+    KEY_COUNT=$(grep -Ec '^(ssh-|ecdsa-|sk-)' "$home/.ssh/authorized_keys" 2>/dev/null || true)
+    AUTHORIZED_KEYS_COUNT=$(( AUTHORIZED_KEYS_COUNT + KEY_COUNT ))
+  fi
 done
 
 if [ "$AUTHORIZED_KEYS_COUNT" -eq 0 ]; then
@@ -63,7 +66,7 @@ fi
 if ! sshd -t 2>/tmp/sshd_test_err; then
   cat /tmp/sshd_test_err
   warn "Конфиг SSH повреждён — восстанавливаем бэкап..."
-  cp "${SSHD}.bak."* "$SSHD" 2>/dev/null || true
+  cp "$SSHD_BACKUP" "$SSHD" 2>/dev/null || true
   die "SSH конфиг не прошёл проверку. Бэкап восстановлен."
 fi
 

@@ -1,18 +1,21 @@
 #!/bin/bash
-# Регистрируем systemd сервис для автостарта docker compose после ребута
+# Register systemd autostart for docker compose stack.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GREEN='\033[0;32m'; NC='\033[0m'
 log() { echo -e "${GREEN}[+]${NC} $*"; }
 
+[ "$(id -u)" != "0" ] && { echo "Run as root"; exit 1; }
+
+DOCKER_BIN="$(command -v docker)"
 SERVICE_FILE="/etc/systemd/system/proxy-stack.service"
 
-log "Создаём systemd unit: proxy-stack..."
+log "Creating systemd unit: proxy-stack..."
 
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
-Description=Proxy Stack (nginx + h-ui + mtproxy + fail2ban)
+Description=Proxy Stack (nginx + h-ui + fail2ban)
 Requires=docker.service
 After=docker.service network-online.target
 Wants=network-online.target
@@ -21,11 +24,11 @@ Wants=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=${ROOT}
-ExecStart=/usr/bin/docker compose up -d --remove-orphans
-ExecStop=/usr/bin/docker compose down
-ExecReload=/usr/bin/docker compose pull && /usr/bin/docker compose up -d --remove-orphans
-TimeoutStartSec=120
-TimeoutStopSec=30
+ExecStart=${DOCKER_BIN} compose up -d --remove-orphans
+ExecStop=${DOCKER_BIN} compose down
+ExecReload=/bin/sh -c '${DOCKER_BIN} compose pull nginx certbot h-ui fail2ban watchtower && ${DOCKER_BIN} compose up -d --remove-orphans'
+TimeoutStartSec=180
+TimeoutStopSec=60
 
 [Install]
 WantedBy=multi-user.target
@@ -33,10 +36,10 @@ EOF
 
 systemctl daemon-reload
 systemctl enable proxy-stack.service
-systemctl start  proxy-stack.service
+systemctl restart proxy-stack.service
 
-log "Сервис зарегистрирован и запущен."
+log "Service registered and started."
 echo ""
-echo "  systemctl status proxy-stack   — статус"
-echo "  systemctl restart proxy-stack  — перезапуск"
-echo "  journalctl -u proxy-stack -f   — логи"
+echo "  systemctl status proxy-stack"
+echo "  systemctl restart proxy-stack"
+echo "  journalctl -u proxy-stack -f"
