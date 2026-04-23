@@ -37,10 +37,12 @@ services:
       - ./h-ui/data:/h-ui/data
       - ./h-ui/export:/h-ui/export
       - ./h-ui/logs:/h-ui/logs
+      - ./certbot/conf:/etc/letsencrypt:ro
     environment:
       - TZ=${TZ:-Europe/Moscow}
     cap_add:
       - NET_ADMIN
+      - NET_BIND_SERVICE
 
 
   fail2ban:

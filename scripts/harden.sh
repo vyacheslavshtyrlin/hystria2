@@ -31,25 +31,25 @@ set_sshd() {
   fi
 }
 
-# Проверяем наличие SSH ключа перед отключением пароля
-AUTHORIZED_KEYS_COUNT=0
-for home in /root /home/*; do
-  if [ -f "$home/.ssh/authorized_keys" ]; then
-    KEY_COUNT=$(grep -Ec '^(ssh-|ecdsa-|sk-)' "$home/.ssh/authorized_keys" 2>/dev/null || true)
-    AUTHORIZED_KEYS_COUNT=$(( AUTHORIZED_KEYS_COUNT + KEY_COUNT ))
-  fi
-done
+# Проверяем наличие SSH ключа именно у root перед отключением пароля.
+ROOT_AUTHORIZED_KEYS="/root/.ssh/authorized_keys"
+ROOT_KEYS_COUNT=0
+if [ -f "$ROOT_AUTHORIZED_KEYS" ]; then
+  ROOT_KEYS_COUNT=$(grep -Ec '^(ssh-|ecdsa-|sk-)' "$ROOT_AUTHORIZED_KEYS" 2>/dev/null || true)
+fi
 
-if [ "$AUTHORIZED_KEYS_COUNT" -eq 0 ]; then
-  warn "SSH ключи не найдены! Пропускаем отключение парольного входа."
-  warn "Добавь ключ: ssh-copy-id root@СЕРВЕР — и перезапусти harden.sh"
-  set_sshd Port            "$SSH_PORT"
-  set_sshd PermitRootLogin no
-  set_sshd MaxAuthTries    3
-  set_sshd LoginGraceTime  30
+if [ "$ROOT_KEYS_COUNT" -eq 0 ]; then
+  warn "У root не найден SSH ключ. Оставляем парольный вход включённым, чтобы не потерять доступ."
+  warn "Добавь ключ: ssh-copy-id root@СЕРВЕР, проверь вход по ключу в новой сессии и только потом запускай harden.sh повторно."
+  set_sshd Port                   "$SSH_PORT"
+  set_sshd PermitRootLogin        yes
+  set_sshd PasswordAuthentication yes
+  set_sshd PubkeyAuthentication   yes
+  set_sshd MaxAuthTries           3
+  set_sshd LoginGraceTime         30
 else
   set_sshd Port                   "$SSH_PORT"
-  set_sshd PermitRootLogin        no
+  set_sshd PermitRootLogin        prohibit-password
   set_sshd PasswordAuthentication no
   set_sshd PubkeyAuthentication   yes
   set_sshd AuthenticationMethods  publickey
@@ -59,7 +59,7 @@ else
   set_sshd LoginGraceTime         30
   set_sshd ClientAliveInterval    300
   set_sshd ClientAliveCountMax    2
-  warn "SSH: пароли отключены. Используй только ключ!"
+  warn "SSH: парольный вход отключён, root разрешён только по ключу."
 fi
 
 # Проверяем конфиг — если битый, восстанавливаем бэкап и падаем
