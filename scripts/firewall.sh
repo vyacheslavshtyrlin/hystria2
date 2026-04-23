@@ -47,11 +47,10 @@ log "Внешний интерфейс: $EXT_IF"
 cat >> "$UFW_AFTER" <<EOF
 
 # DOCKER-UFW-FIX-BEGIN
-# Блокируем прямой доступ к Docker-портам извне, кроме разрешённых UFW
 *filter
 :DOCKER-USER - [0:0]
--A DOCKER-USER -i $EXT_IF -p tcp --dport 8081 -j DROP   # h-ui: только через nginx
--A DOCKER-USER -i $EXT_IF -p tcp --dport 2398 -j DROP   # MTProxy internal
+-A DOCKER-USER -i $EXT_IF -p tcp --dport 8081 -j DROP
+-A DOCKER-USER -i $EXT_IF -p tcp --dport 2398 -j DROP
 -A DOCKER-USER -i $EXT_IF -j RETURN
 COMMIT
 # DOCKER-UFW-FIX-END
