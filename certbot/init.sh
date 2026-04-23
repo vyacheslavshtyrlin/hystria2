@@ -50,7 +50,7 @@ sed -i "s/HUI_SUBDOMAIN_PLACEHOLDER/$HUI_SUBDOMAIN/g" "$ROOT/nginx/conf.d/h-ui.c
 
 # ── 5. Настраиваем автообновление через cron ──────────────────
 CRON_JOB="0 3 * * * certbot renew --quiet --pre-hook 'docker compose -f $ROOT/docker-compose.yml stop nginx' --post-hook 'docker compose -f $ROOT/docker-compose.yml start nginx'"
-( crontab -l 2>/dev/null | grep -v 'certbot renew'; echo "$CRON_JOB" ) | crontab -
+{ crontab -l 2>/dev/null || true; } | grep -v 'certbot renew' | { cat; echo "$CRON_JOB"; } | crontab -
 log "Автообновление сертификатов настроено (cron, каждую ночь в 03:00)"
 
 # ── 6. Запускаем nginx с HTTPS ────────────────────────────────
