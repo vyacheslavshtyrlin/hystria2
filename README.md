@@ -132,31 +132,7 @@ hys2
 https://api.твойдомен.com:2096/RANDOM_HASH/
 ```
 
-### 6.3 Добавить stub-сайт в Caddyfile
-
-После запуска панели Blitz перезаписывает `/etc/caddy/Caddyfile`. Восстанови stub-сайт:
-
-```bash
-bash ~/hystria2/scripts/caddy-restore.sh
-```
-
-Или вручную — добавь в начало `/etc/caddy/Caddyfile` перед блоком панели:
-
-```
-vpn.твойдомен.com {
-    root * /root/hystria2/www
-    file_server
-    encode gzip
-    header { -Server }
-}
-```
-
-Затем:
-```bash
-systemctl restart caddy
-```
-
-### 6.4 Создать пользователей
+### 6.3 Создать пользователей
 
 Через веб-панель или `hys2` → Users → Add.
 
@@ -231,9 +207,6 @@ Blitz (Hysteria2 + Caddy) — стартует автоматически чер
 **❌ Сертификат Caddy не выдаётся**
 - Проверь DNS: `dig +short vpn.твойдомен.com @8.8.8.8`
 - Порт 80 должен быть открыт и не занят: `ss -tlnp | grep :80`
-
-**❌ Stub-сайт не работает после настройки панели**
-- Blitz перезаписал Caddyfile — восстанови: `bash ~/hystria2/scripts/caddy-restore.sh`
 
 **❌ Hysteria2 не подключается**
 - Проверь obfs-password в клиенте
