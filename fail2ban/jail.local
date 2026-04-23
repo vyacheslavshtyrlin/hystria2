@@ -1,0 +1,28 @@
+[DEFAULT]
+bantime  = 1h
+findtime = 10m
+maxretry = 5
+banaction = iptables-multiport
+
+[sshd]
+enabled  = true
+port     = ssh
+filter   = sshd
+logpath  = /var/log/auth.log
+maxretry = 3
+bantime  = 24h
+
+[nginx-http-auth]
+enabled  = true
+port     = http,https
+filter   = nginx-http-auth
+logpath  = /var/log/nginx/error.log
+
+[nginx-4xx]
+enabled  = true
+port     = http,https
+filter   = nginx-4xx
+logpath  = /var/log/nginx/access.log
+maxretry = 20
+findtime = 1m
+bantime  = 30m

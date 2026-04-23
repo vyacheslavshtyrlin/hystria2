@@ -1,0 +1,6 @@
+.env
+certbot/conf/
+h-ui/data/
+mtproxy/proxy-secret
+mtproxy/proxy-multi.conf
+nginx/conf.d/active.conf

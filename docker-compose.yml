@@ -1,0 +1,93 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/html:/usr/share/nginx/html:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - /var/log/nginx:/var/log/nginx   # логи на хост для CrowdSec/fail2ban
+    depends_on:
+      - h-ui
+    command: >
+      sh -c "nginx -g 'daemon off;' &
+             while :; do sleep 6h && nginx -s reload; done"
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    restart: unless-stopped
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: >
+      sh -c "trap exit TERM;
+             while :; do
+               certbot renew --webroot -w /var/www/certbot --quiet;
+               sleep 12h & wait;
+             done"
+
+  h-ui:
+    image: jonssonyan/h-ui:latest
+    container_name: h-ui
+    restart: unless-stopped
+    network_mode: host          # нужен чтобы hysteria2 слушал UDP 443 напрямую
+    volumes:
+      - ./h-ui/bin:/h-ui/bin
+      - ./h-ui/data:/h-ui/data
+      - ./h-ui/export:/h-ui/export
+      - ./h-ui/logs:/h-ui/logs
+    environment:
+      - TZ=${TZ:-Europe/Moscow}
+    cap_add:
+      - NET_ADMIN
+
+
+  fail2ban:
+    image: crazymax/fail2ban:latest
+    container_name: fail2ban
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./fail2ban:/data
+      - /var/log:/var/log:ro
+    environment:
+      - TZ=${TZ:-Europe/Moscow}
+      - F2B_LOG_LEVEL=INFO
+
+  xray:
+    image: ghcr.io/xtls/xray-core:latest
+    container_name: xray
+    restart: unless-stopped
+    network_mode: host        # слушает на TCP 443 напрямую
+    volumes:
+      - ./xray:/etc/xray:ro
+    command: xray run -c /etc/xray/config.json
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=${TZ:-Europe/Moscow}
+      - WATCHTOWER_CLEANUP=true           # удалять старые образы
+      - WATCHTOWER_INCLUDE_STOPPED=false
+      - WATCHTOWER_SCHEDULE=0 0 4 * * *   # каждый день в 04:00
+      - WATCHTOWER_NOTIFICATIONS=shoutrrr
+      # Опционально: уведомления в Telegram
+      # - WATCHTOWER_NOTIFICATION_URL=telegram://BOT_TOKEN@telegram?chats=CHAT_ID
+
+networks:
+  default:
+    name: proxy_net

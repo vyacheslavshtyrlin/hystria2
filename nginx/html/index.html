@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Norvik Systems — reliable cloud infrastructure and managed services for growing businesses.">
+<title>Norvik Systems</title>
+<style>
+  :root {
+    --bg:       #f5f4f0;
+    --bg2:      #eeecea;
+    --surface:  #ffffff;
+    --border:   #dddbd6;
+    --text:     #1a1916;
+    --sub:      #6b6860;
+    --muted:    #a8a49c;
+    --accent:   #2355d4;
+    --accent-l: #e8eefb;
+    --mono:     'Courier New', monospace;
+    --sans:     'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky;
+    top: 0;
+    background: rgba(245,244,240,.92);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    z-index: 50;
+    padding: 0 40px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nav-logo {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    text-decoration: none;
+    letter-spacing: -.01em;
+  }
+  .nav-logo span { color: var(--accent); }
+  .nav-links {
+    display: flex;
+    gap: 32px;
+    list-style: none;
+  }
+  .nav-links a {
+    font-size: 13.5px;
+    color: var(--sub);
+    text-decoration: none;
+    transition: color .15s;
+  }
+  .nav-links a:hover { color: var(--text); }
+  .nav-cta {
+    font-size: 13px;
+    background: var(--text);
+    color: var(--bg) !important;
+    padding: 7px 16px;
+    border-radius: 4px;
+    transition: opacity .15s !important;
+  }
+  .nav-cta:hover { opacity: .8; }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1080px; margin: 0 auto; padding: 0 40px; }
+  section { padding: 80px 0; }
+
+  /* ── HERO ── */
+  #hero {
+    padding: 100px 0 80px;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero-inner {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 80px;
+    align-items: center;
+  }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--accent);
+    background: var(--accent-l);
+    padding: 4px 12px;
+    border-radius: 100px;
+    margin-bottom: 24px;
+  }
+  .hero-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: blink 2s infinite;
+  }
+  h1 {
+    font-size: clamp(36px, 5vw, 58px);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -.03em;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+  .hero-sub {
+    font-size: 17px;
+    color: var(--sub);
+    line-height: 1.7;
+    margin-bottom: 36px;
+    max-width: 480px;
+  }
+  .hero-actions { display: flex; gap: 12px; }
+  .btn {
+    display: inline-block;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 11px 22px;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: opacity .15s, background .15s;
+    cursor: default;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { opacity: .88; }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: var(--bg2); }
+
+  /* Stats card */
+  .hero-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 32px;
+    box-shadow: 0 2px 16px rgba(0,0,0,.05);
+  }
+  .hero-card-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 14px 0;
+    border-top: 1px solid var(--border);
+  }
+  .stat-row:first-of-type { border-top: none; padding-top: 0; }
+  .stat-label { font-size: 13px; color: var(--sub); }
+  .stat-val {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -.02em;
+  }
+  .stat-val small { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 4px; }
+  .uptime-bar {
+    margin-top: 20px;
+    height: 5px;
+    background: var(--bg2);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .uptime-fill {
+    height: 100%;
+    width: 99.94%;
+    background: linear-gradient(90deg, #2ac868, #1db557);
+    border-radius: 10px;
+  }
+  .uptime-label {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── LOGOS (trust) ── */
+  #trust {
+    padding: 40px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .trust-label {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+  }
+  .logo-strip {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 48px;
+    flex-wrap: wrap;
+  }
+  .logo-item {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: -.01em;
+    opacity: .6;
+  }
+
+  /* ── SERVICES ── */
+  #services { border-bottom: 1px solid var(--border); }
+  .section-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-size: clamp(26px, 3.5vw, 40px);
+    font-weight: 700;
+    letter-spacing: -.025em;
+    line-height: 1.15;
+    margin-bottom: 16px;
+  }
+  .section-sub {
+    font-size: 16px;
+    color: var(--sub);
+    max-width: 500px;
+    line-height: 1.7;
+    margin-bottom: 56px;
+  }
+  .services-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .service-card {
+    background: var(--surface);
+    padding: 32px 28px;
+    transition: background .15s;
+  }
+  .service-card:hover { background: var(--accent-l); }
+  .service-icon {
+    width: 40px; height: 40px;
+    border-radius: 8px;
+    background: var(--accent-l);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    margin-bottom: 20px;
+  }
+  .service-name {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .service-desc {
+    font-size: 13.5px;
+    color: var(--sub);
+    line-height: 1.65;
+  }
+
+  /* ── HOW IT WORKS ── */
+  #how { border-bottom: 1px solid var(--border); background: var(--surface); }
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 40px;
+    margin-top: 56px;
+  }
+  .step-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .step-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .step-desc { font-size: 13.5px; color: var(--sub); line-height: 1.65; }
+
+  /* ── FAQ ── */
+  #faq { border-bottom: 1px solid var(--border); }
+  .faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 48px; }
+  .faq-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 24px;
+  }
+  .faq-q { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+  .faq-a { font-size: 13.5px; color: var(--sub); line-height: 1.7; }
+
+  /* ── CONTACT ── */
+  #contact { background: var(--text); color: var(--bg); }
+  #contact .section-label { color: #7b9fff; }
+  #contact .section-title { color: var(--bg); }
+  #contact .section-sub { color: rgba(245,244,240,.6); }
+  .contact-form {
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  input, textarea, select {
+    width: 100%;
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 5px;
+    padding: 11px 14px;
+    font-size: 14px;
+    color: var(--bg);
+    font-family: var(--sans);
+    outline: none;
+    transition: border-color .15s;
+  }
+  input::placeholder, textarea::placeholder { color: rgba(245,244,240,.35); }
+  input:focus, textarea:focus { border-color: rgba(255,255,255,.4); }
+  textarea { height: 100px; resize: none; }
+  .form-submit {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    align-self: flex-start;
+    transition: opacity .15s;
+  }
+  .form-submit:hover { opacity: .88; }
+
+  /* ── FOOTER ── */
+  footer {
+    background: #111;
+    padding: 32px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .footer-logo { font-size: 14px; font-weight: 600; color: #fff; }
+  .footer-logo span { color: #4d7fff; }
+  .footer-links { display: flex; gap: 24px; }
+  .footer-links a { font-size: 12.5px; color: #666; text-decoration: none; }
+  .footer-links a:hover { color: #999; }
+  .footer-copy { font-size: 12px; color: #444; }
+
+  /* ── ANIMATIONS ── */
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .4; }
+  }
+
+  @media (max-width: 900px) {
+    .hero-inner { grid-template-columns: 1fr; }
+    .hero-card { display: none; }
+    .services-grid { grid-template-columns: 1fr 1fr; }
+    .steps { grid-template-columns: 1fr 1fr; }
+    .faq-grid { grid-template-columns: 1fr; }
+    nav { padding: 0 20px; }
+    .container { padding: 0 20px; }
+    footer { padding: 24px 20px; flex-direction: column; align-items: flex-start; }
+    .nav-links li:not(:last-child) { display: none; }
+  }
+  @media (max-width: 600px) {
+    .services-grid, .steps { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#" class="nav-logo">Norvik<span>.</span></a>
+  <ul class="nav-links">
+    <li><a href="#services">Services</a></li>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#faq">FAQ</a></li>
+    <li><a href="#contact" class="nav-cta">Get in touch</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="container">
+    <div class="hero-inner">
+      <div>
+        <div class="hero-badge">Infrastructure &amp; Managed Services</div>
+        <h1>Your infrastructure,<br>taken care of.</h1>
+        <p class="hero-sub">
+          Norvik Systems helps small and mid-size businesses run reliable,
+          secure cloud infrastructure — without hiring a full DevOps team.
+        </p>
+        <div class="hero-actions">
+          <a href="#contact" class="btn btn-primary">Talk to us</a>
+          <a href="#services" class="btn btn-ghost">See services</a>
+        </div>
+      </div>
+
+      <div class="hero-card">
+        <p class="hero-card-title">System status</p>
+        <div class="stat-row">
+          <span class="stat-label">Managed servers</span>
+          <span class="stat-val">214 <small>active</small></span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Incidents this month</span>
+          <span class="stat-val">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Avg. response time</span>
+          <span class="stat-val">11 <small>min</small></span>
+        </div>
+        <div class="uptime-bar"><div class="uptime-fill"></div></div>
+        <div class="uptime-label">
+          <span>Uptime (30 days)</span>
+          <span style="color:#1db557;font-weight:600">99.94%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST -->
+<section id="trust">
+  <div class="container">
+    <p class="trust-label">Trusted by teams at</p>
+    <div class="logo-strip">
+      <span class="logo-item">Krefield GmbH</span>
+      <span class="logo-item">Pactum Labs</span>
+      <span class="logo-item">Velio Group</span>
+      <span class="logo-item">Hartwell &amp; Co</span>
+      <span class="logo-item">Solbrix AG</span>
+    </div>
+  </div>
+</section>
+
+<!-- SERVICES -->
+<section id="services">
+  <div class="container">
+    <p class="section-label">What we do</p>
+    <h2 class="section-title">Everything your servers need,<br>nothing you don't.</h2>
+    <p class="section-sub">We handle the operational overhead so your team can focus on shipping product.</p>
+    <div class="services-grid">
+      <div class="service-card">
+        <div class="service-icon">⚙️</div>
+        <p class="service-name">Server Management</p>
+        <p class="service-desc">OS hardening, patch management, configuration drift detection, and regular audits on any Linux distribution.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">📊</div>
+        <p class="service-name">Monitoring &amp; Alerting</p>
+        <p class="service-desc">24/7 infrastructure monitoring with custom dashboards, on-call rotations, and SLA-backed response times.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">🔒</div>
+        <p class="service-name">Security &amp; Compliance</p>
+        <p class="service-desc">Firewall management, intrusion detection, vulnerability scanning, and compliance readiness for ISO 27001 and SOC 2.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">☁️</div>
+        <p class="service-name">Cloud Migrations</p>
+        <p class="service-desc">Migrate from on-premise or between providers with zero downtime. We handle planning, execution, and post-migration validation.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">💾</div>
+        <p class="service-name">Backup &amp; Recovery</p>
+        <p class="service-desc">Automated, tested backups with documented recovery procedures. We run quarterly drills so restores actually work when needed.</p>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">🛠</div>
+        <p class="service-name">On-demand Support</p>
+        <p class="service-desc">No retainer required. Purchase hours as needed for one-off tasks, capacity reviews, or urgent incident response.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="container">
+    <p class="section-label">Process</p>
+    <h2 class="section-title">Up and running in a week.</h2>
+    <div class="steps">
+      <div>
+        <p class="step-num">01</p>
+        <p class="step-title">Initial audit</p>
+        <p class="step-desc">We review your current setup, flag risks, and document everything — including the stuff no one has written down yet.</p>
+      </div>
+      <div>
+        <p class="step-num">02</p>
+        <p class="step-title">Scope &amp; proposal</p>
+        <p class="step-desc">You get a clear scope of work, fixed monthly price, and SLA terms. No surprises, no upsells.</p>
+      </div>
+      <div>
+        <p class="step-num">03</p>
+        <p class="step-title">Onboarding</p>
+        <p class="step-desc">We deploy our monitoring stack, set up alerting channels, and integrate with your existing workflows.</p>
+      </div>
+      <div>
+        <p class="step-num">04</p>
+        <p class="step-title">Ongoing operations</p>
+        <p class="step-desc">Monthly reports, quarterly reviews, and a direct line to the engineer responsible for your account.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="container">
+    <p class="section-label">FAQ</p>
+    <h2 class="section-title">Common questions</h2>
+    <div class="faq-grid">
+      <div class="faq-item">
+        <p class="faq-q">Which cloud providers do you support?</p>
+        <p class="faq-a">We work with AWS, GCP, Hetzner, DigitalOcean, and bare-metal providers. If you're on something else, ask us — we've probably worked with it.</p>
+      </div>
+      <div class="faq-item">
+        <p class="faq-q">What's your typical response time for incidents?</p>
+        <p class="faq-a">P1 incidents (site down, data loss risk): 15 minutes. P2 (degraded performance): 1 hour. We're on-call, not just office hours.</p>
+      </div>
+      <div class="faq-item">
+        <p class="faq-q">Do you require long-term contracts?</p>
+        <p class="faq-a">Managed plans are billed monthly with a 30-day notice period. We'd rather earn your business every month than lock you in.</p>
+      </div>
+      <div class="faq-item">
+        <p class="faq-q">Can you work alongside our internal team?</p>
+        <p class="faq-a">Yes — many clients have developers who handle application code while we handle the infrastructure layer. We define a clear boundary of responsibility upfront.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact">
+  <div class="container">
+    <p class="section-label">Contact</p>
+    <h2 class="section-title">Let's talk about<br>your infrastructure.</h2>
+    <p class="section-sub">Fill in the form and we'll get back within one business day.</p>
+    <form class="contact-form" onsubmit="return false;">
+      <div class="form-row">
+        <input type="text" placeholder="Your name">
+        <input type="email" placeholder="Work email">
+      </div>
+      <input type="text" placeholder="Company">
+      <textarea placeholder="Tell us about your setup and what you're looking for..."></textarea>
+      <button type="submit" class="form-submit">Send message →</button>
+    </form>
+  </div>
+</section>
+
+<footer>
+  <span class="footer-logo">Norvik<span>.</span></span>
+  <div class="footer-links">
+    <a href="#">Privacy</a>
+    <a href="#">Terms</a>
+    <a href="#">Status</a>
+  </div>
+  <span class="footer-copy">© 2025 Norvik Systems Ltd. Registered in Estonia.</span>
+</footer>
+
+</body>
+</html>
