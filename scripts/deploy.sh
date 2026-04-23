@@ -44,16 +44,36 @@ log "Скачиваем образы..."
 docker compose -f "$ROOT/docker-compose.yml" pull
 
 log "Запускаем сервисы..."
-docker compose -f "$ROOT/docker-compose.yml" up -d fail2ban watchtower
-
-log "Выпускаем SSL сертификат..."
-bash "$ROOT/certbot/init.sh"
-
-log "Запускаем nginx..."
-docker compose -f "$ROOT/docker-compose.yml" up -d --remove-orphans
+docker compose -f "$ROOT/docker-compose.yml" up -d
 
 log "Устанавливаем Blitz (Hysteria2 менеджер)..."
 bash <(curl -fsSL https://raw.githubusercontent.com/ReturnFI/Blitz/main/install.sh)
+
+# Даём Caddy права на директорию со stub-сайтом
+chmod o+rx "$ROOT" "$ROOT/www"
+
+log "Настраиваем Caddy (stub-сайт)..."
+cat > /etc/caddy/Caddyfile <<CADDYEOF
+{
+    admin off
+}
+
+${DOMAIN} {
+    root * ${ROOT}/www
+    file_server
+    encode gzip
+
+    header {
+        X-Frame-Options DENY
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        -Server
+    }
+}
+CADDYEOF
+
+systemctl enable caddy
+systemctl restart caddy
 
 log "Регистрируем автостарт..."
 bash "$ROOT/scripts/autostart.sh"

@@ -15,7 +15,7 @@ log "Creating systemd unit: proxy-stack..."
 
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
-Description=Proxy Stack (nginx + h-ui + fail2ban)
+Description=Proxy Stack (fail2ban + watchtower)
 Requires=docker.service
 After=docker.service network-online.target
 Wants=network-online.target
@@ -26,7 +26,7 @@ RemainAfterExit=yes
 WorkingDirectory=${ROOT}
 ExecStart=${DOCKER_BIN} compose up -d --remove-orphans
 ExecStop=${DOCKER_BIN} compose down
-ExecReload=/bin/sh -c '${DOCKER_BIN} compose pull nginx certbot h-ui fail2ban watchtower && ${DOCKER_BIN} compose up -d --remove-orphans'
+ExecReload=/bin/sh -c '${DOCKER_BIN} compose pull && ${DOCKER_BIN} compose up -d --remove-orphans'
 TimeoutStartSec=180
 TimeoutStopSec=60
 
