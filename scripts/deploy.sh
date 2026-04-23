@@ -35,14 +35,17 @@ bash "$ROOT/scripts/firewall.sh"
 
 # 6. Поднимаем Docker-сервисы
 log "Скачиваем образы..."
-docker compose -f "$ROOT/docker-compose.yml" pull
+docker compose -f "$ROOT/docker-compose.yml" pull nginx certbot h-ui fail2ban watchtower
 
-log "Запускаем сервисы..."
-docker compose -f "$ROOT/docker-compose.yml" up -d
+log "Запускаем сервисы без nginx до выпуска SSL..."
+docker compose -f "$ROOT/docker-compose.yml" up -d h-ui fail2ban watchtower
 
 # 7. SSL сертификаты
 log "Выпускаем SSL сертификаты..."
 bash "$ROOT/certbot/init.sh"
+
+log "Запускаем полный compose stack..."
+docker compose -f "$ROOT/docker-compose.yml" up -d --remove-orphans
 
 # 8. Автостарт через systemd
 log "Регистрируем автостарт..."

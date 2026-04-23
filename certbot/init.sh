@@ -13,10 +13,28 @@ die()  { echo -e "${RED}[✗]${NC} $*" >&2; exit 1; }
 [ "$DOMAIN" = "example.com" ] && die "Заполни .env: DOMAIN не настроен"
 [ -z "$EMAIL" ]               && die "Заполни .env: EMAIL не задан"
 
+CERTBOT_CONFIG_DIR="$ROOT/certbot/conf"
+CERTBOT_WORK_DIR="$ROOT/certbot/work"
+CERTBOT_LOGS_DIR="$ROOT/certbot/logs"
+mkdir -p "$CERTBOT_CONFIG_DIR" "$CERTBOT_WORK_DIR" "$CERTBOT_LOGS_DIR"
+
 # ── 1. Устанавливаем certbot на хост если нет ─────────────────
 if ! command -v certbot &>/dev/null; then
   log "Устанавливаем certbot..."
   apt-get install -y -qq certbot
+fi
+
+if ! command -v crontab &>/dev/null; then
+  log "Устанавливаем cron..."
+  command -v apt-get &>/dev/null || die "Не найден apt-get: установи cron/crontab вручную"
+  apt-get update -qq
+  apt-get install -y -qq cron
+fi
+
+if command -v systemctl &>/dev/null; then
+  systemctl enable --now cron >/dev/null 2>&1 || warn "Не удалось запустить cron через systemctl, проверь сервис вручную"
+else
+  service cron start >/dev/null 2>&1 || warn "Не удалось запустить cron через service, проверь сервис вручную"
 fi
 
 # ── 2. Останавливаем nginx чтобы освободить порт 80 ───────────
@@ -27,12 +45,15 @@ docker compose -f "$ROOT/docker-compose.yml" stop nginx 2>/dev/null || true
 issue_cert() {
   local domain="$1"
   # Если сертификат уже есть и не истекает — пропускаем
-  if certbot certificates 2>/dev/null | grep -q "Domains: .*${domain}"; then
+  if certbot --config-dir "$CERTBOT_CONFIG_DIR" certificates 2>/dev/null | grep -q "Domains: .*${domain}"; then
     warn "Сертификат для ${domain} уже существует, пропускаем."
     return 0
   fi
   log "Выпускаем сертификат для: $domain"
   certbot certonly --standalone \
+    --config-dir "$CERTBOT_CONFIG_DIR" \
+    --work-dir "$CERTBOT_WORK_DIR" \
+    --logs-dir "$CERTBOT_LOGS_DIR" \
     --email "$EMAIL" \
     --agree-tos \
     --no-eff-email \
@@ -49,13 +70,13 @@ sed -i "s/DOMAIN_PLACEHOLDER/$DOMAIN/g"               "$ROOT/nginx/conf.d/defaul
 sed -i "s/HUI_SUBDOMAIN_PLACEHOLDER/$HUI_SUBDOMAIN/g" "$ROOT/nginx/conf.d/h-ui.conf"
 
 # ── 5. Настраиваем автообновление через cron ──────────────────
-CRON_JOB="0 3 * * * certbot renew --quiet --pre-hook 'docker compose -f $ROOT/docker-compose.yml stop nginx' --post-hook 'docker compose -f $ROOT/docker-compose.yml start nginx'"
-{ crontab -l 2>/dev/null || true; } | grep -v 'certbot renew' | { cat; echo "$CRON_JOB"; } | crontab -
+CRON_JOB="0 3 * * * certbot renew --quiet --config-dir $CERTBOT_CONFIG_DIR --work-dir $CERTBOT_WORK_DIR --logs-dir $CERTBOT_LOGS_DIR --pre-hook 'docker compose -f $ROOT/docker-compose.yml stop nginx' --post-hook 'docker compose -f $ROOT/docker-compose.yml up -d nginx'"
+{ crontab -l 2>/dev/null || true; } | { grep -v 'certbot renew' || true; } | { cat; echo "$CRON_JOB"; } | crontab -
 log "Автообновление сертификатов настроено (cron, каждую ночь в 03:00)"
 
 # ── 6. Запускаем nginx с HTTPS ────────────────────────────────
 log "Запускаем nginx..."
-docker compose -f "$ROOT/docker-compose.yml" start nginx
+docker compose -f "$ROOT/docker-compose.yml" up -d nginx
 
 echo ""
 echo -e "${GREEN}======================================${NC}"
