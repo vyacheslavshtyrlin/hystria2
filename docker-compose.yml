@@ -33,7 +33,6 @@ services:
     restart: unless-stopped
     network_mode: host          # нужен чтобы hysteria2 слушал UDP 443 напрямую
     volumes:
-      - ./h-ui/bin:/h-ui/bin
       - ./h-ui/data:/h-ui/data
       - ./h-ui/export:/h-ui/export
       - ./h-ui/logs:/h-ui/logs
