@@ -29,32 +29,11 @@ ufw allow 443/tcp comment 'HTTPS (nginx)'
 ufw allow 443/udp comment 'Hysteria2 QUIC'
 ufw allow "${MTPROXY_PORT_VAL}/tcp" comment 'MTProxy Telegram'
 
-# ── 4. Фикс Docker + UFW ──────────────────────────────────────
-# Docker напрямую пишет в iptables и обходит UFW.
-# Решение: запрещаем Docker управлять iptables для внешних интерфейсов,
-# оставляем только localhost и docker-внутренние сети.
-log "Применяем фикс Docker + UFW..."
-
-UFW_AFTER="/etc/ufw/after.rules"
-
-# Убираем наш блок если уже есть (идемпотентность)
-sed -i '/# DOCKER-UFW-FIX-BEGIN/,/# DOCKER-UFW-FIX-END/d' "$UFW_AFTER"
-
-# Получаем внешний интерфейс (eth0, ens3, enp0s3 и т.д.)
-EXT_IF=$(ip route get 8.8.8.8 | awk '{print $5; exit}')
-log "Внешний интерфейс: $EXT_IF"
-
-cat >> "$UFW_AFTER" <<EOF
-
-# DOCKER-UFW-FIX-BEGIN
-*filter
-:DOCKER-USER - [0:0]
--A DOCKER-USER -i $EXT_IF -p tcp --dport 8081 -j DROP
--A DOCKER-USER -i $EXT_IF -p tcp --dport 2398 -j DROP
--A DOCKER-USER -i $EXT_IF -j RETURN
-COMMIT
-# DOCKER-UFW-FIX-END
-EOF
+# ── 4. Закрываем внутренние порты через UFW ───────────────────
+# h-ui использует network_mode: host — UFW контролирует его напрямую.
+# Порт 8081 (h-ui) закрываем снаружи, доступен только через nginx.
+log "Закрываем внутренние порты..."
+ufw deny 8081/tcp comment 'h-ui internal - only via nginx'
 
 # ── 5. Daemon Docker — отключаем userland-proxy для чистоты ───
 log "Настраиваем Docker daemon..."
@@ -90,6 +69,5 @@ echo -e "  443/tcp  — HTTPS"
 echo -e "  443/udp  — Hysteria2"
 echo -e "  ${MTPROXY_PORT_VAL}/tcp  — MTProxy"
 echo -e ""
-echo -e "Закрыто снаружи (только через nginx/localhost):"
-echo -e "  8081     — h-ui панель"
-echo -e "  2398     — MTProxy internal"
+echo -e "Закрыто снаружи:"
+echo -e "  8081     — h-ui панель (только через nginx)"
