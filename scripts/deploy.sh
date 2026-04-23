@@ -32,7 +32,7 @@ systemctl enable --now docker
 TARGET_USER="${SUDO_USER:-${USER:-root}}"
 [ "$TARGET_USER" != "root" ] && usermod -aG docker "$TARGET_USER"
 
-chmod +x "$ROOT/scripts/"*.sh "$ROOT/certbot/init.sh"
+chmod +x "$ROOT/scripts/"*.sh
 
 log "Запускаем hardening..."
 bash "$ROOT/scripts/harden.sh"
