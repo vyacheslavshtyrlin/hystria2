@@ -35,7 +35,7 @@ ufw allow "${MTPROXY_PORT_VAL}/tcp" comment 'MTProxy Telegram'
 log "Закрываем внутренние порты..."
 ufw deny 8081/tcp comment 'h-ui internal - only via nginx'
 
-# ── 5. Daemon Docker — отключаем userland-proxy для чистоты ───
+# ── 5. Docker daemon — логи ────────────────────────────────────
 log "Настраиваем Docker daemon..."
 mkdir -p /etc/docker
 cat > /etc/docker/daemon.json <<'EOF'
@@ -44,8 +44,7 @@ cat > /etc/docker/daemon.json <<'EOF'
   "log-opts": {
     "max-size": "10m",
     "max-file": "3"
-  },
-  "userland-proxy": false
+  }
 }
 EOF
 
