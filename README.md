@@ -96,15 +96,23 @@ sudo bash scripts/deploy.sh
 2. Hardening SSH, sysctl, swap
 3. Настраивает UFW (открыты только 80 и 443)
 4. Получает SSL-сертификат через certbot webroot
-5. nginx: stream на 443 + http за ним
-6. Устанавливает 3x-ui
+5. Устанавливает 3x-ui (см. ниже — вопросы установщика)
+6. nginx: stream на 443 + http за ним
 7. Настраивает fail2ban
 
 > После деплоя SSH работает на новом порту: `ssh -p 2222 root@IP_сервера`
 
-В конце скрипт выведет:
-- URL панели 3x-ui
-- Параметры для создания inbound
+### Вопросы установщика 3x-ui
+
+**Порт панели** — жми Enter (оставь дефолт, скрипт перезапишет на 2053 автоматически)
+
+**SSL** — выбирай **Custom**:
+- Certificate path: `/etc/letsencrypt/live/твойдомен.com/fullchain.pem`
+- Key path: `/etc/letsencrypt/live/твойдомен.com/privkey.pem`
+
+Certbot к этому моменту уже получил сертификат — файлы существуют.
+
+В конце скрипт выведет URL панели и параметры для создания inbound.
 
 ---
 
@@ -125,14 +133,8 @@ sudo bash scripts/deploy.sh
 
 3x-ui сгенерирует ссылку вида:
 ```
-vless://UUID@твойдомен.com:443?security=tls&type=xhttp&path=%2Fабцдеф12#name
+vless://UUID@твойдомен.com:443?security=tls&type=xhttp&path=%2Fabcdef12#name
 ```
-
-### Сертификаты для панели
-
-Settings → Panel Settings:
-- SSL Certificate: `/etc/letsencrypt/live/твойдомен.com/fullchain.pem`
-- SSL Key: `/etc/letsencrypt/live/твойдомен.com/privkey.pem`
 
 ---
 

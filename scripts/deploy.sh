@@ -203,7 +203,7 @@ http {
         }
 
         location ${PANEL_PATH}/ {
-            proxy_pass          https://127.0.0.1:${PANEL_PORT}/;
+            proxy_pass          https://127.0.0.1:${PANEL_PORT};
             proxy_http_version  1.1;
             proxy_ssl_verify    off;
             proxy_set_header    Host \$host;
