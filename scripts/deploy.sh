@@ -24,6 +24,7 @@ chmod +x "$ROOT/scripts/"*.sh
 # ─── Внутренние порты (снаружи недоступны) ───────────────────────────────────
 XHTTP_PORT=2096
 PANEL_PORT=2053
+SUB_PORT=2095
 MTPROXY_PORT=2083
 NGINX_HTTP_PORT=4433
 WEBROOT="/var/www/certbot"
@@ -108,8 +109,12 @@ chmod +x /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
 log "[6/7] 3x-ui"
 bash <(curl -Ls https://raw.githubusercontent.com/MHSanaei/3x-ui/master/install.sh)
 
-# Задаём порт (путь панели оставляем тот что сгенерировал установщик)
-x-ui setting -port "$PANEL_PORT" 2>/dev/null || true
+# Задаём порт напрямую в БД (x-ui setting -port ненадёжен)
+sqlite3 /etc/x-ui/x-ui.db \
+    "UPDATE settings SET value='${PANEL_PORT}' WHERE key='webPort';" 2>/dev/null || true
+# Сбрасываем креды на admin/admin на случай если установщик задал другие
+sqlite3 /etc/x-ui/x-ui.db \
+    "UPDATE users SET username='admin', password='admin' WHERE id=1;" 2>/dev/null || true
 systemctl restart x-ui
 
 # Читаем путь панели из базы 3x-ui, убираем лишние слэши
@@ -200,6 +205,14 @@ http {
             proxy_request_buffering      off;
             proxy_read_timeout           86400s;
             proxy_send_timeout           86400s;
+        }
+
+        location /sub/ {
+            proxy_pass          https://127.0.0.1:${SUB_PORT};
+            proxy_http_version  1.1;
+            proxy_ssl_verify    off;
+            proxy_set_header    Host \$host;
+            proxy_set_header    X-Real-IP \$remote_addr;
         }
 
         location ${PANEL_PATH}/ {
