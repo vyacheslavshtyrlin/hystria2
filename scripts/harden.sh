@@ -78,18 +78,15 @@ log "Настраиваем sysctl..."
 cat > /etc/sysctl.d/99-server.conf <<'EOF'
 # ── Сеть ──────────────────────────────────────────────────────
 
-# BBR — современный алгоритм управления перегрузкой (лучше для Hysteria2)
+# BBR — современный алгоритм управления перегрузкой
 net.core.default_qdisc = fq
 net.ipv4.tcp_congestion_control = bbr
 
-# UDP буферы — критично для Hysteria2/QUIC
-# (дефолт 208KB, рекомендация для Hysteria2 — 16MB+)
+# Буферы сокетов
 net.core.rmem_max = 16777216
 net.core.wmem_max = 16777216
 net.core.rmem_default = 1048576
 net.core.wmem_default = 1048576
-net.ipv4.udp_rmem_min = 8192
-net.ipv4.udp_wmem_min = 8192
 
 # TCP буферы
 net.ipv4.tcp_rmem = 4096 1048576 16777216
@@ -131,7 +128,7 @@ net.ipv4.icmp_ignore_bogus_error_responses = 1
 EOF
 
 sysctl --system >/dev/null
-log "sysctl применён (BBR + UDP буферы 16MB)"
+log "sysctl применён (BBR + буферы + защита)"
 
 # ── 3. SWAP ────────────────────────────────────────────────────
 log "Настраиваем swap..."

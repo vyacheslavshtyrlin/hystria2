@@ -1,6 +1,3 @@
 .env
-certbot/conf/
-h-ui/data/
-mtproxy/proxy-secret
-mtproxy/proxy-multi.conf
-nginx/conf.d/active.conf
+/etc/proxy-stack.env
+INSTALL_INFO.txt
