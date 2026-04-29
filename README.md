@@ -127,7 +127,7 @@ sudo bash scripts/deploy.sh
 | Параметр | Значение |
 |---|---|
 | Protocol | VLESS |
-| Listen IP | `127.0.0.1` |
+| Listen IP | пусто |
 | Port | `2096` |
 | Transport | XHTTP |
 | Path | значение XHTTP_PATH из `/etc/proxy-stack.env` |

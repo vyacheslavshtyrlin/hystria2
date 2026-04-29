@@ -22,6 +22,8 @@ ufw limit "${SSH_PORT}/tcp" comment 'SSH rate-limited'
 log "Публичные порты..."
 ufw allow 80/tcp  comment 'HTTP (certbot + редирект)'
 ufw allow 443/tcp comment 'HTTPS + MTProxy (nginx stream)'
+ufw allow 8443/tcp comment 'VLESS REALITY'
+ufw allow 8443/udp comment 'Hysteria2 QUIC'
 
 log "Включаем UFW..."
 ufw --force enable
@@ -32,4 +34,6 @@ log "Фаервол настроен."
 echo "  ${SSH_PORT}/tcp  — SSH (rate-limited)"
 echo "  80/tcp    — HTTP"
 echo "  443/tcp   — HTTPS + MTProxy (через nginx stream)"
+echo "  8443/tcp  — VLESS REALITY"
+echo "  8443/udp  — Hysteria2 QUIC"
 warn "Все остальные порты закрыты. MTProxy и 3x-ui доступны только через nginx :443"

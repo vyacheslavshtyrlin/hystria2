@@ -23,20 +23,27 @@ chmod +x "$ROOT/scripts/"*.sh
 
 # ─── Внутренние порты (снаружи недоступны) ───────────────────────────────────
 XHTTP_PORT=2096
+WS_PORT=2097
+XHTTP_CDN_PORT=2100
 PANEL_PORT=2053
 SUB_PORT=2095
 MTPROXY_PORT=2083
 NGINX_HTTP_PORT=4433
-WEBROOT="/var/www/certbot"
+WS_HTTP_PORT=4434
+CDN="${CDN:-}"   # опционально в .env; если пусто — CDN-блоки пропускаются
 
-# XHTTP_PATH генерируем сами — это путь inbound Xray, не путь панели
+# Пути inbound генерируем сами
 if [ -f /etc/proxy-stack.env ]; then
     source /etc/proxy-stack.env
     warn "Конфиг загружен из /etc/proxy-stack.env (предыдущая установка)"
+fi
+[ -z "${XHTTP_PATH:-}" ] && XHTTP_PATH="/$(openssl rand -hex 8)"
+if [ -n "$CDN" ]; then
+    [ -z "${WS_PATH:-}" ]        && WS_PATH="/$(openssl rand -hex 8)"
+    [ -z "${XHTTP_CDN_PATH:-}" ] && XHTTP_CDN_PATH="/$(openssl rand -hex 8)"
 else
-    XHTTP_PATH="/$(openssl rand -hex 8)"
-    install -m 600 /dev/null /etc/proxy-stack.env
-    printf 'XHTTP_PATH="%s"\n' "$XHTTP_PATH" > /etc/proxy-stack.env
+    WS_PATH=""
+    XHTTP_CDN_PATH=""
 fi
 
 # ─── 1. Зависимости ──────────────────────────────────────────────────────────
@@ -52,66 +59,40 @@ bash "$ROOT/scripts/harden.sh"
 log "[3/7] Firewall"
 bash "$ROOT/scripts/firewall.sh"
 
-# ─── 4. nginx — начальный конфиг (HTTP + webroot) ────────────────────────────
-log "[4/7] nginx — начальный конфиг"
-mkdir -p "$WEBROOT" /var/www/html
-cp -r "$ROOT/www/." /var/www/html/
-
-cat > /etc/nginx/nginx.conf <<NGINX
-user www-data;
-worker_processes auto;
-pid /run/nginx.pid;
-include /etc/nginx/modules-enabled/*.conf;
-
-events { worker_connections 1024; }
-
-http {
-    include      /etc/nginx/mime.types;
-    default_type application/octet-stream;
-    sendfile     on;
-    keepalive_timeout 65;
-
-    server {
-        listen 80;
-        server_name ${DOMAIN};
-
-        location /.well-known/acme-challenge/ {
-            root ${WEBROOT};
-        }
-
-        location / {
-            root  /var/www/html;
-            index index.html;
-        }
-    }
-}
-NGINX
-
-systemctl enable --now nginx
-nginx -t && systemctl reload nginx
-
-# ─── 5. SSL ──────────────────────────────────────────────────────────────────
-log "[5/7] SSL-сертификат (webroot)"
+# ─── 4. SSL — standalone (nginx ещё не запущен, порт 80 свободен) ───────────
+log "[4/7] SSL-сертификат (standalone)"
 certbot certonly \
-    --webroot -w "$WEBROOT" \
+    --standalone \
     -d "$DOMAIN" \
     --non-interactive \
     --agree-tos \
     --email "$EMAIL"
 
-cat > /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh <<'EOF'
+# При обновлении: остановить nginx → обновить → запустить
+cat > /etc/letsencrypt/renewal-hooks/pre/stop-nginx.sh <<'EOF'
 #!/bin/bash
-systemctl reload nginx
+systemctl stop nginx
 EOF
-chmod +x /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+cat > /etc/letsencrypt/renewal-hooks/post/start-nginx.sh <<'EOF'
+#!/bin/bash
+systemctl start nginx
+EOF
+chmod +x /etc/letsencrypt/renewal-hooks/pre/stop-nginx.sh \
+         /etc/letsencrypt/renewal-hooks/post/start-nginx.sh
 
-# ─── 6. 3x-ui — ставим первым, читаем его путь панели ───────────────────────
-log "[6/7] 3x-ui"
-bash <(curl -Ls https://raw.githubusercontent.com/MHSanaei/3x-ui/master/install.sh)
+# ─── 5. 3x-ui — до nginx, порт 80 свободен для его acme.sh ──────────────────
+log "[5/7] 3x-ui"
+bash <(curl -Ls https://raw.githubusercontent.com/MHSanaei/3x-ui/master/install.sh) || true
+command -v x-ui >/dev/null 2>&1 || die "3x-ui не установился — проверь вывод установщика выше"
 
 # Задаём порт напрямую в БД (x-ui setting -port ненадёжен)
 sqlite3 /etc/x-ui/x-ui.db \
     "UPDATE settings SET value='${PANEL_PORT}' WHERE key='webPort';" 2>/dev/null || true
+# Указываем 3x-ui использовать сертификаты certbot (иначе он сгенерирует self-signed)
+sqlite3 /etc/x-ui/x-ui.db \
+    "UPDATE settings SET value='/etc/letsencrypt/live/${DOMAIN}/fullchain.pem' WHERE key='webCertFile';" 2>/dev/null || true
+sqlite3 /etc/x-ui/x-ui.db \
+    "UPDATE settings SET value='/etc/letsencrypt/live/${DOMAIN}/privkey.pem' WHERE key='webKeyFile';" 2>/dev/null || true
 # Сбрасываем креды на admin/admin на случай если установщик задал другие
 sqlite3 /etc/x-ui/x-ui.db \
     "UPDATE users SET username='admin', password='admin' WHERE id=1;" 2>/dev/null || true
@@ -132,19 +113,157 @@ if [ -z "$PANEL_PATH" ]; then
 fi
 
 # Сохраняем финальные пути
-printf 'XHTTP_PATH="%s"\nPANEL_PATH="%s"\n' "$XHTTP_PATH" "$PANEL_PATH" \
-    > /etc/proxy-stack.env
+install -m 600 /dev/null /etc/proxy-stack.env
+printf 'XHTTP_PATH="%s"\nWS_PATH="%s"\nXHTTP_CDN_PATH="%s"\nPANEL_PATH="%s"\n' \
+    "$XHTTP_PATH" "$WS_PATH" "$XHTTP_CDN_PATH" "$PANEL_PATH" > /etc/proxy-stack.env
 
-# ─── nginx — финальный конфиг (теперь знаем PANEL_PATH) ─────────────────────
-log "nginx — финальный конфиг (stream + http)"
+# ─── 6. nginx — единый финальный конфиг ──────────────────────────────────────
+log "[6/7] nginx"
+mkdir -p /var/www/html
+cp -r "$ROOT/www/." /var/www/html/
 
+if [ -n "$CDN" ]; then
 cat > /etc/nginx/nginx.conf <<NGINX
 user www-data;
 worker_processes auto;
 pid /run/nginx.pid;
 include /etc/nginx/modules-enabled/*.conf;
 
-events { worker_connections 1024; }
+worker_rlimit_nofile 65535;
+
+events { worker_connections 4096; }
+
+stream {
+    map \$ssl_preread_server_name \$backend {
+        ${DOMAIN}   127.0.0.1:${NGINX_HTTP_PORT};
+        ${CDN}      127.0.0.1:${WS_HTTP_PORT};
+        default     127.0.0.1:${MTPROXY_PORT};
+    }
+
+    server {
+        listen 443;
+        ssl_preread on;
+        proxy_pass  \$backend;
+    }
+}
+
+http {
+    include      /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    sendfile     on;
+    keepalive_timeout 65;
+    access_log   /var/log/nginx/access.log;
+    error_log    /var/log/nginx/error.log;
+
+    server {
+        listen 80;
+        server_name ${DOMAIN} ${CDN};
+
+        location / {
+            return 301 https://\$host\$request_uri;
+        }
+    }
+
+    server {
+        listen 127.0.0.1:${NGINX_HTTP_PORT} ssl http2;
+        server_name ${DOMAIN};
+
+        ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers         HIGH:!aNULL:!MD5;
+
+        location / {
+            root  /var/www/html;
+            index index.html;
+            try_files \$uri \$uri/ /index.html;
+        }
+
+        location ${XHTTP_PATH} {
+            proxy_pass                   http://127.0.0.1:${XHTTP_PORT};
+            proxy_http_version           1.1;
+            proxy_set_header Host        \$host;
+            proxy_set_header X-Real-IP   \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_buffering              off;
+            proxy_request_buffering      off;
+            proxy_read_timeout           86400s;
+            proxy_send_timeout           86400s;
+            client_max_body_size         0;
+        }
+
+        location /sub/ {
+            proxy_pass          https://127.0.0.1:${SUB_PORT};
+            proxy_http_version  1.1;
+            proxy_ssl_verify    off;
+            proxy_set_header    Host \$host;
+            proxy_set_header    X-Real-IP \$remote_addr;
+        }
+
+        location ${PANEL_PATH}/ {
+            proxy_pass          https://127.0.0.1:${PANEL_PORT};
+            proxy_http_version  1.1;
+            proxy_ssl_verify    off;
+            proxy_set_header    Host \$host;
+            proxy_set_header    X-Real-IP \$remote_addr;
+            proxy_set_header    Upgrade \$http_upgrade;
+            proxy_set_header    Connection "upgrade";
+        }
+    }
+
+    server {
+        listen 127.0.0.1:${WS_HTTP_PORT} ssl;
+        server_name ${CDN};
+
+        ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers         HIGH:!aNULL:!MD5;
+
+        location / {
+            root  /var/www/html;
+            index index.html;
+            try_files \$uri \$uri/ /index.html;
+        }
+
+        location ${WS_PATH} {
+            proxy_pass              http://127.0.0.1:${WS_PORT};
+            proxy_http_version      1.1;
+            proxy_set_header        Upgrade    \$http_upgrade;
+            proxy_set_header        Connection "upgrade";
+            proxy_set_header        Host       \$host;
+            proxy_set_header        X-Real-IP  \$http_cf_connecting_ip;
+            proxy_buffering         off;
+            proxy_request_buffering off;
+            proxy_read_timeout      86400s;
+            proxy_send_timeout      86400s;
+        }
+
+        location ${XHTTP_CDN_PATH} {
+            proxy_pass                   http://127.0.0.1:${XHTTP_CDN_PORT};
+            proxy_http_version           1.1;
+            proxy_set_header Host        \$host;
+            proxy_set_header X-Real-IP   \$http_cf_connecting_ip;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_buffering              off;
+            proxy_request_buffering      off;
+            proxy_read_timeout           86400s;
+            proxy_send_timeout           86400s;
+            client_max_body_size         0;
+        }
+    }
+}
+NGINX
+else
+cat > /etc/nginx/nginx.conf <<NGINX
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+worker_rlimit_nofile 65535;
+
+events { worker_connections 4096; }
 
 stream {
     map \$ssl_preread_server_name \$backend {
@@ -171,10 +290,6 @@ http {
         listen 80;
         server_name ${DOMAIN};
 
-        location /.well-known/acme-challenge/ {
-            root ${WEBROOT};
-        }
-
         location / {
             return 301 https://\$host\$request_uri;
         }
@@ -192,7 +307,7 @@ http {
         location / {
             root  /var/www/html;
             index index.html;
-            try_files \$uri \$uri/ =404;
+            try_files \$uri \$uri/ /index.html;
         }
 
         location ${XHTTP_PATH} {
@@ -205,6 +320,7 @@ http {
             proxy_request_buffering      off;
             proxy_read_timeout           86400s;
             proxy_send_timeout           86400s;
+            client_max_body_size         0;
         }
 
         location /sub/ {
@@ -227,8 +343,9 @@ http {
     }
 }
 NGINX
+fi
 
-nginx -t && systemctl reload nginx
+nginx -t && systemctl enable --now nginx
 
 # ─── 7. fail2ban ─────────────────────────────────────────────────────────────
 log "[7/7] fail2ban"
@@ -248,13 +365,48 @@ SUMMARY="
   3x-ui панель: https://${DOMAIN}${PANEL_PATH}/
   (логин/пароль по умолчанию: admin / admin)
 
-  Xray inbound (создать в 3x-ui):
-    Protocol:   VLESS
-    Listen IP:  127.0.0.1
-    Port:       ${XHTTP_PORT}
-    Transport:  XHTTP
-    Path:       ${XHTTP_PATH}
-    TLS:        None
+  Inbound 1 — VLESS+XHTTP (создать в 3x-ui):
+    Protocol:       VLESS
+    Listen IP:      пусто
+    Port:           ${XHTTP_PORT}
+    Transport:      XHTTP
+    Path:           ${XHTTP_PATH}
+    TLS:            None
+    External Proxy: ${DOMAIN}:443 TLS
+
+$([ -n "$CDN" ] && cat <<CDN_SUMMARY
+
+  Inbound 2 — VLESS+WebSocket CDN (создать в 3x-ui):
+    Protocol:       VLESS
+    Listen IP:      пусто
+    Port:           ${WS_PORT}
+    Transport:      WebSocket
+    Path:           ${WS_PATH}
+    TLS:            None
+    External Proxy: ${CDN}:443 TLS
+    (Cloudflare: ${CDN} → orange cloud, SSL Full)
+
+  Inbound 3 — VLESS+XHTTP CDN (создать в 3x-ui):
+    Protocol:       VLESS
+    Listen IP:      пусто
+    Port:           ${XHTTP_CDN_PORT}
+    Transport:      XHTTP
+    Path:           ${XHTTP_CDN_PATH}
+    TLS:            None
+    External Proxy: ${CDN}:443 TLS
+    (Cloudflare: ${CDN} → orange cloud, SSL Full)
+CDN_SUMMARY
+)
+  Inbound $([ -n "$CDN" ] && echo 4 || echo 2) — Hysteria2 (создать в 3x-ui):
+    Protocol:       Hysteria2
+    Port:           443
+    Listen IP:      пусто
+    TLS cert:       ${CERT_PATH}/fullchain.pem
+    TLS key:        ${CERT_PATH}/privkey.pem
+    SNI:            ${DOMAIN}
+    Obfs type:      salamander
+    Obfs password:  (Generate в панели)
+    (UDP:443 открыт в UFW — nginx не конфликтует, он TCP)
 
   Серты (Settings → Panel Settings):
     cert: ${CERT_PATH}/fullchain.pem
