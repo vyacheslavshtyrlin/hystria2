@@ -59,14 +59,21 @@ bash "$ROOT/scripts/harden.sh"
 log "[3/7] Firewall"
 bash "$ROOT/scripts/firewall.sh"
 
-# ─── 4. SSL — standalone (nginx ещё не запущен, порт 80 свободен) ───────────
+# ─── 4. SSL — standalone ─────────────────────────────────────────────────────
 log "[4/7] SSL-сертификат (standalone)"
-certbot certonly \
-    --standalone \
-    -d "$DOMAIN" \
-    --non-interactive \
-    --agree-tos \
-    --email "$EMAIL"
+# apt install nginx запускает nginx автоматически — останавливаем перед certbot
+systemctl stop nginx 2>/dev/null || true
+
+if [ -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
+    warn "Сертификат уже существует, пропускаем выпуск"
+else
+    certbot certonly \
+        --standalone \
+        -d "$DOMAIN" \
+        --non-interactive \
+        --agree-tos \
+        --email "$EMAIL"
+fi
 
 # При обновлении: остановить nginx → обновить → запустить
 cat > /etc/letsencrypt/renewal-hooks/pre/stop-nginx.sh <<'EOF'
